@@ -11,7 +11,7 @@ async def get_chat_response(
         ]
 
         response = openai.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-3.5",
             messages=messages,
             seed=seed,
             max_tokens=200,
