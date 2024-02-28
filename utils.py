@@ -1,6 +1,5 @@
 import openai
 
-
 async def get_chat_response(
     system_message: str, user_request: str, seed: int = None, temperature: float = 0.7
 ):
