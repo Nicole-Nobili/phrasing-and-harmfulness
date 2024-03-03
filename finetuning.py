@@ -13,6 +13,7 @@ from peft import LoraConfig, get_peft_model, prepare_model_for_int8_training
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 os.environ["WANDB_DISABLED"] = "true"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 class Prompter(object):
     def __init__(self):
@@ -26,10 +27,9 @@ class Prompter(object):
     def generate_prompt(
         self,
         instruction: str,
-        input: str,
         output: str = None,
     ) -> str:
-        res = self.template["prompt"].format(instruction=instruction, input=input)
+        res = self.template["prompt"].format(instruction=instruction)
         if output:
             res = f"{res}{output}"
 
@@ -181,14 +181,14 @@ def train(
 
     def generate_and_tokenize_prompt(data_point):
         full_prompt = prompter.generate_prompt(
-            data_point["instruction"],
+            data_point["prompt"],
             data_point["output"],
         )
         tokenized_full_prompt = tokenize(full_prompt)
 
         # we can use this to mask the instruction if we don't want to train on that
         if not train_on_inputs:
-            user_prompt = prompter.generate_prompt(data_point["instruction"])
+            user_prompt = prompter.generate_prompt(data_point["prompt"])
             tokenized_user_prompt = tokenize(user_prompt, add_eos_token=add_eos_token)
             user_prompt_len = len(tokenized_user_prompt["input_ids"])
 
@@ -287,7 +287,7 @@ def train(
         eval_dataset=dev_data,
         args=t_args,
         data_collator=transformers.DataCollatorForSeq2Seq(
-            tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
+            tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True, 
         ),
     )
 
