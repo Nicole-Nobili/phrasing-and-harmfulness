@@ -3,32 +3,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 import torch
 from tqdm.auto import tqdm
-
+from utils import load_model
 tqdm.pandas()
-
-# Load model
-def load_model(model_name, adapter_model="", dtype=torch.bfloat16, device='auto'):
-    print("Loading the model...")
-    if model_name == "": model_name = model_name
-
-    model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        torch_dtype=dtype,
-        low_cpu_mem_usage=True,
-        device_map=device
-    )
-    peft_model = PeftModel.from_pretrained(model, adapter_model).merge_and_unload()
-    del model
-
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-
-    if 'llama' or 'mistral' in model_name.lower():
-        tokenizer.pad_token = tokenizer.eos_token
-        tokenizer.pad_token_id = tokenizer.eos_token_id
-    
-    tokenizer.padding_side = 'left' 
-
-    return peft_model, tokenizer
 
 # Generation function
 @torch.no_grad()
@@ -59,15 +35,19 @@ results = pd.DataFrame(columns=['model_name'] + results_cols)
 batch_size = 32
 
 # Run generations
+result_list = []
+
 for hf_model in ['meta-llama/Llama-2-7b-hf', 'mistralai/Mistral-7B-v0.1']: 
     model_name = hf_model.split('/')[-1]
     print(f"Running {model_name}")
     adapters = []
-    for ds in ['base', 'int', 'dec', 'imp', 'all']:
-        for rs in range(3):
-            adapters.append(f"speech-acts/{model_name}-lora-{ds}-rs-{rs+1}")
+    for ds in ['int', 'dec', 'imp', 'all']:
+        for safety in ['s5', 's15']:
+            for rs in range(3):
+                adapters.append(f"speech-acts/{model_name}-lora-{ds}-{safety}-rs-{rs+1}")
 
-    result_list = []
+    for rs in range(3):
+        adapters.append(f"speech-acts/{model_name}-lora-base-rs-{rs+1}")
 
     for adapter in tqdm(adapters):
         try:
@@ -89,7 +69,7 @@ for hf_model in ['meta-llama/Llama-2-7b-hf', 'mistralai/Mistral-7B-v0.1']:
             result_list.append(results)
             del model, tokenizer
         except Exception as e:
-            print(f"Some problem occurred with: {adapter}")
+            print(f"Some problem occurred with: {adapter}\n{e}")
     
-    merged_results = pd.concat(result_list, ignore_index=True)
-    merged_results.to_csv(f"data/eval/{model_name}.csv", index=False)
+merged_results = pd.concat(result_list, ignore_index=True)
+merged_results.to_csv(f"data/eval/eval.csv", index=False)
