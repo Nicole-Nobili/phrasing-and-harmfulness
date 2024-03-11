@@ -8,11 +8,11 @@ tqdm.pandas()
 
 # Generation function
 @torch.no_grad()
-def generate(model, tokenizer, messages):
+def generate(messages):
     prompts = [f"A chat between a user and an AI assistant. The assistant answers the user's questions.\n\n### User: {message}\n### Assistant:" for message in messages]
 
-    tokens = tokenizer.batch_encode_plus(prompts, return_tensors='pt', padding=True).to(model.device)
-    generated_ids = model.generate(**tokens, max_new_tokens=16, do_sample=True, top_p=1, temperature=0.1, pad_token_id=tokenizer.eos_token_id)
+    tokens = tokenizer.batch_encode_plus(prompts, return_tensors='pt', padding=True)['input_ids']
+    generated_ids = model.generate(tokens.to(model.device), max_new_tokens=16, do_sample=True, top_p=1, temperature=0.1, pad_token_id=tokenizer.eos_token_id)
 
     return [i.split('Assistant: ')[-1] for i in tokenizer.batch_decode(generated_ids, skip_special_tokens=True)]
 
@@ -21,12 +21,16 @@ def generate(model, tokenizer, messages):
 ####################
 
 # Load data
-eval_dataset = pd.read_csv('data/speech_acts.csv')[['Opinion', 'Presupposition']].dropna() #.drop(['Opinions', 'Presuppositions'], axis=1)
+eval_dataset = pd.read_csv('data/speech_acts.csv').drop(['Opinions', 'Presuppositions'], axis=1)
 
+# create a new dataset with the same columns as the eval dataset and with another column called model name
+# this dataset will be used to store the results of the model
 results_cols = []
 for col in eval_dataset.columns:
     results_cols.append(col)
     results_cols.append('answer_' + col)
+
+results = pd.DataFrame(columns=['model_name'] + results_cols)
 
 batch_size = 32
 
@@ -38,12 +42,9 @@ for hf_model in ['meta-llama/Llama-2-7b-hf', 'mistralai/Mistral-7B-v0.1']:
     print(f"Running {model_name}")
     adapters = []
     for ds in ['int', 'dec', 'imp', 'all']:
-        for safety in ['s5', 's15']:
+        for checkpoint in [50, 100, 150, 200, 250, 300]:
             for rs in range(3):
-                adapters.append(f"speech-acts/{model_name}-lora-{ds}-{safety}-rs-{rs+1}")
-
-    for rs in range(3):
-        adapters.append(f"speech-acts/{model_name}-lora-base-rs-{rs+1}")
+                adapters.append(f"models/{model_name}-lora-{ds}-s5-rs-{rs+1}/checkpoint-{checkpoint}")
 
     for adapter in tqdm(adapters):
         try:
@@ -58,14 +59,15 @@ for hf_model in ['meta-llama/Llama-2-7b-hf', 'mistralai/Mistral-7B-v0.1']:
                 results[prompt_column] = eval_dataset[prompt_column]
                 generations = []
                 for b in range(len(eval_dataset) // batch_size + 1): 
-                    generations += generate(model, tokenizer, eval_dataset[prompt_column].iloc[b*batch_size:(b+1)*batch_size].tolist())
+                    generations += generate(eval_dataset[prompt_column].iloc[b*batch_size:(b+1)*batch_size])
                 results["answer_" + prompt_column] = generations
-            
-            results["model_name"] = adapter.split('/')[-1]
+
+            _, name, ckpt = adapter.split('/')
+            results["model_name"] = name + '-' + ckpt.split('-')[-1]
             result_list.append(results)
             del model, tokenizer
         except Exception as e:
             print(f"Some problem occurred with: {adapter}\n{e}")
     
 merged_results = pd.concat(result_list, ignore_index=True)
-merged_results.to_csv(f"data/eval/eval_opipre.csv", index=False)
+merged_results.to_csv(f"data/eval/eval_ckpt.csv", index=False)

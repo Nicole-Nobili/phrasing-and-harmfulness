@@ -47,7 +47,7 @@ def train(
     # training parameters
     batch_size: int = 128,
     micro_batch_size: int = 4,
-    num_epochs: int = 4,
+    num_epochs: int = 10,
     learning_rate: float = 3e-4,
     cutoff_len: int = 300,
     train_on_inputs: bool = True,  # if False, masks out inputs in loss
