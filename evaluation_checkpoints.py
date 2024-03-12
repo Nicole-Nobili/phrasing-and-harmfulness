@@ -8,11 +8,11 @@ tqdm.pandas()
 
 # Generation function
 @torch.no_grad()
-def generate(messages):
+def generate(model, tokenizer, messages):
     prompts = [f"A chat between a user and an AI assistant. The assistant answers the user's questions.\n\n### User: {message}\n### Assistant:" for message in messages]
 
-    tokens = tokenizer.batch_encode_plus(prompts, return_tensors='pt', padding=True)['input_ids']
-    generated_ids = model.generate(tokens.to(model.device), max_new_tokens=16, do_sample=True, top_p=1, temperature=0.1, pad_token_id=tokenizer.eos_token_id)
+    tokens = tokenizer.batch_encode_plus(prompts, return_tensors='pt', padding=True).to(model.device)
+    generated_ids = model.generate(**tokens, max_new_tokens=16, do_sample=True, top_p=1, temperature=0.1, pad_token_id=tokenizer.eos_token_id)
 
     return [i.split('Assistant: ')[-1] for i in tokenizer.batch_decode(generated_ids, skip_special_tokens=True)]
 
@@ -21,16 +21,12 @@ def generate(messages):
 ####################
 
 # Load data
-eval_dataset = pd.read_csv('data/speech_acts.csv').drop(['Opinions', 'Presuppositions'], axis=1)
+eval_dataset = pd.read_csv('data/speech_acts.csv')[['Opinion', 'Presupposition']].dropna() #.drop(['Opinions', 'Presuppositions'], axis=1)
 
-# create a new dataset with the same columns as the eval dataset and with another column called model name
-# this dataset will be used to store the results of the model
 results_cols = []
 for col in eval_dataset.columns:
     results_cols.append(col)
     results_cols.append('answer_' + col)
-
-results = pd.DataFrame(columns=['model_name'] + results_cols)
 
 batch_size = 32
 
@@ -59,7 +55,7 @@ for hf_model in ['meta-llama/Llama-2-7b-hf', 'mistralai/Mistral-7B-v0.1']:
                 results[prompt_column] = eval_dataset[prompt_column]
                 generations = []
                 for b in range(len(eval_dataset) // batch_size + 1): 
-                    generations += generate(eval_dataset[prompt_column].iloc[b*batch_size:(b+1)*batch_size])
+                    generations += generate(model, tokenizer, eval_dataset[prompt_column].iloc[b*batch_size:(b+1)*batch_size].tolist())
                 results["answer_" + prompt_column] = generations
 
             _, name, ckpt = adapter.split('/')
@@ -70,4 +66,4 @@ for hf_model in ['meta-llama/Llama-2-7b-hf', 'mistralai/Mistral-7B-v0.1']:
             print(f"Some problem occurred with: {adapter}\n{e}")
     
 merged_results = pd.concat(result_list, ignore_index=True)
-merged_results.to_csv(f"data/eval/eval_ckpt.csv", index=False)
+merged_results.to_csv(f"data/eval/eval_ckpt_opipre.csv", index=False)
