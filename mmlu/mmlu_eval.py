@@ -24,7 +24,7 @@ def find_answer(row, model_name='gpt4', api_key=None, model=None):
 
     global answers
 
-    for stype in ['Original', 'Interrogative', 'Declarative', 'Imperative']:
+    for stype in ['Original']: #, 'Interrogative', 'Declarative', 'Imperative']:
 
         prompt = f"""Question: {row[stype]}\n\nWhich one of the four choices completes the question correctly, (A), (B), (C) or (D)?\n\nChoices:\n(A) {row['Choice1']}\n(B) {row['Choice2']}\n(C) {row['Choice3']}\n(D) {row['Choice4']}\n\nAnswer only with the right letter.\nAnswer:"""
 
@@ -48,20 +48,23 @@ def find_answer(row, model_name='gpt4', api_key=None, model=None):
         
         elif model_name == 'claude3':
             client = Anthropic(api_key=api_key)
-            message = client.messages.create(
-                model="claude-3-opus-20240229",
-                max_tokens=4,
-                temperature=0,
+            try:
+                message = client.messages.create(
+                    model="claude-3-opus-20240229",
+                    max_tokens=4,
+                    temperature=0,
 
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [{"type": "text", "text": prompt}]
-                    }
-                ]
-            )
-            print(message.content)
-            output = message.content.text
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [{"type": "text", "text": prompt}]
+                        }
+                    ]
+                )
+                output = message.content[0].text
+            except:
+                output = "Error"
+            
 
         elif model_name =='gemini':
             genai.configure(api_key=api_key)
@@ -102,8 +105,8 @@ def find_answer(row, model_name='gpt4', api_key=None, model=None):
 
 
 parser = argparse.ArgumentParser(description="Find the most likely answer to a given question using a specified model.")
-parser.add_argument("--model", type=str, default="gpt4", help="The model to use ('hf', 'gpt4', 'claude3').")
-parser.add_argument("--api_key", type=str, help="The API key for the model (if required).")
+parser.add_argument("-m", "--model", type=str, default="gpt4", help="The model to use ('hf', 'gpt4', 'claude3').")
+parser.add_argument("-k", "--api_key", type=str, help="The API key for the model (if required).")
 
 args = parser.parse_args()
 
@@ -123,16 +126,16 @@ else:
 
 answers = {
     f'Original Answer': [],
-    f'Interrogative Answer': [],
-    f'Declarative Answer': [],
-    f'Imperative Answer': []
+    #f'Interrogative Answer': [],
+    #f'Declarative Answer': [],
+    #f'Imperative Answer': []
 }
 # %% 
 # Load the data
-df = pd.read_csv('mmlu_conv_hand.csv')
+df = pd.read_csv('mmlu_hard.csv')
 model_name = args.model.split('/')[-1]
 
 # Find the most likely answer for each question
 df.progress_apply(find_answer, axis=1, model_name=args.model, api_key=args.api_key, model=model)
 df = pd.concat([df, pd.DataFrame(answers)], axis=1)
-df.to_csv(f'mmlu_{model_name}.csv', index=False)
+df.to_csv(f'mmlu_{model_name}_hard.csv', index=False)
