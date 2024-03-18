@@ -132,10 +132,10 @@ answers = {
 }
 # %% 
 # Load the data
-df = pd.read_csv('mmlu_hard_conv.csv')
+df = pd.read_csv('data/mmlu_hard_conv.csv')
 model_name = args.model.split('/')[-1]
 
 # Find the most likely answer for each question
 df.progress_apply(find_answer, axis=1, model_name=args.model, api_key=args.api_key, model=model)
 df = pd.concat([df, pd.DataFrame(answers)], axis=1)
-df.to_csv(f'mmlu_{model_name}_hard.csv', index=False)
+df.to_csv(f'data/mmlu_{model_name}_hard.csv', index=False)
