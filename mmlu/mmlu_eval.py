@@ -24,9 +24,9 @@ def find_answer(row, model_name='gpt4', api_key=None, model=None):
 
     global answers
 
-    for stype in ['Original']: #, 'Interrogative', 'Declarative', 'Imperative']:
+    for stype in ['Original', 'Interrogative', 'Declarative', 'Imperative']:
 
-        prompt = f"""Question: {row[stype]}\n\nWhich one of the four choices completes the question correctly, (A), (B), (C) or (D)?\n\nChoices:\n(A) {row['Choice1']}\n(B) {row['Choice2']}\n(C) {row['Choice3']}\n(D) {row['Choice4']}\n\nAnswer only with the right letter.\nAnswer:"""
+        prompt = f"""You will be given a question. Find the best answer among the 4 options.\n\Question: {row[stype]}\n\nChoices:\n(A) {row['Choice1']}\n(B) {row['Choice2']}\n(C) {row['Choice3']}\n(D) {row['Choice4']}\n\nAnswer only with the right letter.\nAnswer:"""
 
         if model_name == 'gpt4':
             client = OpenAI(api_key=api_key)
@@ -126,13 +126,13 @@ else:
 
 answers = {
     f'Original Answer': [],
-    #f'Interrogative Answer': [],
-    #f'Declarative Answer': [],
-    #f'Imperative Answer': []
+    f'Interrogative Answer': [],
+    f'Declarative Answer': [],
+    f'Imperative Answer': []
 }
 # %% 
 # Load the data
-df = pd.read_csv('mmlu_hard.csv')
+df = pd.read_csv('mmlu_hard_conv.csv')
 model_name = args.model.split('/')[-1]
 
 # Find the most likely answer for each question
