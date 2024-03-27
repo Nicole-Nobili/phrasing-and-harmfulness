@@ -12,7 +12,7 @@ def generate(model, tokenizer, messages):
     prompts = [f"A chat between a user and an AI assistant. The assistant answers the user's questions.\n\n### User: {message}\n### Assistant:" for message in messages]
 
     tokens = tokenizer.batch_encode_plus(prompts, return_tensors='pt', padding=True).to(model.device)
-    generated_ids = model.generate(**tokens, max_new_tokens=16, do_sample=True, top_p=1, temperature=0.1, pad_token_id=tokenizer.eos_token_id)
+    generated_ids = model.generate(**tokens, max_new_tokens=32, do_sample=True, top_p=1, temperature=0.1, pad_token_id=tokenizer.eos_token_id)
 
     return [i.split('Assistant: ')[-1] for i in tokenizer.batch_decode(generated_ids, skip_special_tokens=True)]
 
@@ -21,7 +21,7 @@ def generate(model, tokenizer, messages):
 ####################
 
 # Load data
-eval_dataset = pd.read_csv('data/speech_acts.csv')[['Opinion', 'Presupposition']].dropna() #.drop(['Opinions', 'Presuppositions'], axis=1)
+eval_dataset = pd.read_csv('data/speech_acts.csv')
 
 results_cols = []
 for col in eval_dataset.columns:
@@ -38,7 +38,7 @@ for hf_model in ['meta-llama/Llama-2-7b-hf', 'mistralai/Mistral-7B-v0.1']:
     print(f"Running {model_name}")
     adapters = []
     for ds in ['int', 'dec', 'imp', 'all']:
-        for safety in ['s5', 's15']:
+        for safety in ['s15']: # 's5'
             for rs in range(3):
                 adapters.append(f"speech-acts/{model_name}-lora-{ds}-{safety}-rs-{rs+1}")
 
@@ -68,4 +68,4 @@ for hf_model in ['meta-llama/Llama-2-7b-hf', 'mistralai/Mistral-7B-v0.1']:
             print(f"Some problem occurred with: {adapter}\n{e}")
     
 merged_results = pd.concat(result_list, ignore_index=True)
-merged_results.to_csv(f"data/eval/eval_opipre.csv", index=False)
+merged_results.to_csv(f"data/speech_acts_generations.csv", index=False)
